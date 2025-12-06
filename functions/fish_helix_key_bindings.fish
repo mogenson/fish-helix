@@ -58,8 +58,7 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
         __fish_shared_key_bindings -s -M $mode
     end
 
-    bind -s --preset -M insert \r execute
-    bind -s --preset -M insert \n execute
+    bind -s --preset -M insert enter execute
 
     bind -s --preset -M insert "" self-insert
 
@@ -74,13 +73,12 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
     # Closing a command substitution expands abbreviations
     bind -s --preset -M insert ")" self-insert expand-abbr
     # Ctrl-space inserts space without expanding abbrs
-    bind -s --preset -M insert -k nul 'commandline -i " "'
+    bind -s --preset -M insert ctrl-space 'commandline -i " "'
 
     # Switching to insert mode
     for mode in default visual
         bind -s --preset -M $mode -m insert \cc end-selection cancel-commandline repaint-mode
-        bind -s --preset -M $mode -m insert \n end-selection execute
-        bind -s --preset -M $mode -m insert \r end-selection execute
+        bind -s --preset -M $mode -m insert enter end-selection execute
         bind -s --preset -M $mode -m insert o end-selection insert-line-under repaint-mode
         bind -s --preset -M $mode -m insert O end-selection insert-line-over repaint-mode
         # FIXME i/a should keep selection, maybe
@@ -93,13 +91,12 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
     # Switching from insert mode
     # Note if we are paging, we want to stay in insert mode
     # See #2871
-    bind -s --preset -M insert \e "if commandline -P; commandline -f cancel; else; set fish_bind_mode default; commandline -f begin-selection repaint-mode; end"
+    bind -s --preset -M insert escape "if commandline -P; commandline -f cancel; else; set fish_bind_mode default; commandline -f begin-selection repaint-mode; end"
 
     # Switching between normal and visual mode
     bind -s --preset -M default -m visual v repaint-mode
-    for key in v \e
-        bind -s --preset -M visual -m default $key repaint-mode
-    end
+    bind -s --preset -M visual -m default v repaint-mode
+    bind -s --preset -M visual -m default escape repaint-mode
 
 
     # Motion and actions in normal/select mode
@@ -119,18 +116,20 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
             # FIXME example to bind 0
             # FIXME backspace to edit count
         end
-        for key in h \e\[D \eOD "-k left"
-            bind -s --preset -M $mode $key "fish_helix_command "$ns_move_extend"_char_left"
-        end
-        for key in l \e\[C \eOC "-k right"
-            bind -s --preset -M $mode $key "fish_helix_command "$ns_move_extend"_char_right"
-        end
-        for key in k \e\[A \eOA "-k up"
-            bind -s --preset -M $mode $key "fish_helix_command char_up"
-        end
-        for key in j \e\[B \eOB "-k down"
-            bind -s --preset -M $mode $key "fish_helix_command char_down"
-        end
+        # Simplified arrow key bindings
+        set -l left_cmd "fish_helix_command "$ns_move_extend"_char_left"
+        bind -s --preset -M $mode h $left_cmd
+        bind -s --preset -M $mode left $left_cmd
+
+        set -l right_cmd "fish_helix_command "$ns_move_extend"_char_right"
+        bind -s --preset -M $mode l $right_cmd
+        bind -s --preset -M $mode right $right_cmd
+
+        bind -s --preset -M $mode k "fish_helix_command char_up"
+        bind -s --preset -M $mode up "fish_helix_command char_up"
+
+        bind -s --preset -M $mode j "fish_helix_command char_down"
+        bind -s --preset -M $mode down "fish_helix_command char_down"
 
         bind -s --preset -M $mode w "fish_helix_command next_word_start"
         bind -s --preset -M $mode b "fish_helix_command prev_word_start"
@@ -139,37 +138,43 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
         bind -s --preset -M $mode B "fish_helix_command prev_long_word_start"
         bind -s --preset -M $mode E "fish_helix_command next_long_word_end"
 
-        bind -s --preset -M $mode t "fish_helix_command till_next_char"
-        bind -s --preset -M $mode f "fish_helix_command find_next_char"
-        bind -s --preset -M $mode T "fish_helix_command till_prev_char"
-        bind -s --preset -M $mode F "fish_helix_command find_prev_char"
+        # Character finding commands - direct binding to fish's built-in jump commands
+        # t - till: move cursor right before the next occurrence of a character
+        bind -s --preset -M $mode t forward-jump-till
+        # f - find: move cursor to the next occurrence of a character
+        bind -s --preset -M $mode f forward-jump
+        # T - till reverse: move cursor right after the previous occurrence of a character
+        bind -s --preset -M $mode T backward-jump-till
+        # F - find reverse: move cursor to the previous occurrence of a character
+        bind -s --preset -M $mode F backward-jump
+        # Repeat the last find/till in same/opposite direction
+        bind -s --preset -M $mode ";" repeat-jump
+        bind -s --preset -M $mode "," repeat-jump-reverse
 
-        bind -s --preset -M $mode t\e ""
-        bind -s --preset -M $mode f\e ""
-        bind -s --preset -M $mode T\e ""
-        bind -s --preset -M $mode F\e ""
+        # Bindings for newline navigation will be implemented as regular bindings
+        # t + enter: move to the position right before the next newline
+        bind -s --preset -M $mode "t,enter" "commandline -f forward-jump-till -- \\n"
+        # f + enter: move to the next newline
+        bind -s --preset -M $mode "f,enter" "commandline -f forward-jump -- \\n"
+        # T + enter: move to the position right after the previous newline
+        bind -s --preset -M $mode "T,enter" "commandline -f backward-jump-till -- \\n"
+        # F + enter: move to the previous newline
+        bind -s --preset -M $mode "F,enter" "commandline -f backward-jump -- \\n"
 
-        for enter in \r \n
-            bind -s --preset -M $mode t$enter "fish_helix_command till_next_cr"
-            bind -s --preset -M $mode f$enter "fish_helix_command find_next_cr"
-            bind -s --preset -M $mode T$enter "fish_helix_command till_prev_cr"
-            bind -s --preset -M $mode F$enter "fish_helix_command find_prev_cr"
-        end
+        # Home and end key bindings
+        bind -s --preset -M $mode gh "fish_helix_command goto_line_start"
+        bind -s --preset -M $mode home "fish_helix_command goto_line_start"
 
-        for key in gh \e\[H \eOH "-k home"
-            bind -s --preset -M $mode $key "fish_helix_command goto_line_start"
-        end
-        for key in gl \e\[F \eOF "-k end"
-            bind -s --preset -M $mode $key "fish_helix_command goto_line_end"
-        end
+        bind -s --preset -M $mode gl "fish_helix_command goto_line_end"
+        bind -s --preset -M $mode end "fish_helix_command goto_line_end"
         bind -s --preset -M $mode gs "fish_helix_command goto_first_nonwhitespace"
         bind -s --preset -M $mode gg "fish_helix_command goto_file_start"
         bind -s --preset -M $mode G "fish_helix_command goto_line"
         bind -s --preset -M $mode ge "fish_helix_command goto_last_line"
 
         # FIXME alt-. doesn't work with t/T
-        # FIXME alt-. doesn't work with [ftFT][\n\r]
-        bind -s --preset -M $mode \e. repeat-jump
+        # FIXME alt-. doesn't work with [ftFT][enter]
+        bind -s --preset -M $mode "alt-." repeat-jump
 
         # FIXME reselect after undo/redo
         bind -s --preset -M $mode u undo begin-selection
@@ -182,30 +187,39 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
         # bind -s --preset -M $mode P fish_clipboard_paste
         # bind -s --preset -M $mode R kill-selection begin-selection yank-pop yank
 
-        bind -s --preset -M $mode -m default d "fish_helix_command delete_selection; $commandline_v_repaint"
-        bind -s --preset -M $mode -m default \ed "fish_helix_command delete_selection_noyank; $commandline_v_repaint"
+        if test -n "$commandline_v_repaint"
+            bind -s --preset -M $mode -m default d "fish_helix_command delete_selection; commandline -f repaint-mode"
+            bind -s --preset -M $mode -m default "alt-d" "fish_helix_command delete_selection_noyank; commandline -f repaint-mode"
+        else
+            bind -s --preset -M $mode -m default d "fish_helix_command delete_selection"
+            bind -s --preset -M $mode -m default "alt-d" "fish_helix_command delete_selection_noyank"
+        end
         bind -s --preset -M $mode -m insert c "fish_helix_command delete_selection; commandline -f end-selection repaint-mode"
-        bind -s --preset -M $mode -m insert \ec "fish_helix_command delete_selection_noyank; commandline -f end-selection repaint-mode"
+        bind -s --preset -M $mode -m insert "alt-c" "fish_helix_command delete_selection_noyank; commandline -f end-selection repaint-mode"
 
         bind -s --preset -M $mode -m default y "fish_helix_command yank"
         bind -s --preset -M $mode p "fish_helix_command paste_after"
         bind -s --preset -M $mode P "fish_helix_command paste_before"
         bind -s --preset -M $mode R "fish_helix_command replace_selection"
 
-        bind -s --preset -M $mode -m default " y" "fish_clipboard_copy; $commandline_v_repaint"
+        if test -n "$commandline_v_repaint"
+            bind -s --preset -M $mode -m default " y" "fish_clipboard_copy; commandline -f repaint-mode"
+        else
+            bind -s --preset -M $mode -m default " y" "fish_clipboard_copy"
+        end
         bind -s --preset -M $mode " p" "fish_helix_command paste_after_clip"
         bind -s --preset -M $mode " P" "fish_helix_command paste_before_clip"
         bind -s --preset -M $mode " R" "fish_helix_command replace_selection_clip"
 
         # FIXME keep selection
         bind -s --preset -M $mode ~ togglecase-selection
-        # FIXME ` and \e`
+        # FIXME ` and escape,`
 
         # FIXME .
         # FIXME < and >
         # FIXME =
 
-        # FIXME \ca \cx
+        # FIXME ctrl-a ctrl-x
         # FIXME Qq
 
         ## Shell
@@ -215,14 +229,15 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
         # FIXME & _
 
         bind -s --preset -M $mode \; begin-selection
-        bind -s --preset -M $mode \e\; swap-selection-start-stop
-        # FIXME \e:
+        bind -s --preset -M $mode "escape,;" swap-selection-start-stop
+        # FIXME escape:
 
         bind -s --preset -M $mode % "fish_helix_command select_all"
+        bind -s --preset -M $mode x "fish_helix_command select_line"
 
-        # FIXME x X \ex
+        # FIXME X alt-x
         # FIXME J
-        # FIXME \cc
+        # FIXME ctrl-c
 
         ## Search
         # FIXME
@@ -235,8 +250,8 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
     # FIXME should replace the whole selection
     # FIXME should be able to go back to visual mode
     bind -s --preset -M replace_one -m default '' delete-char self-insert backward-char repaint-mode
-    bind -s --preset -M replace_one -m default \r 'commandline -f delete-char; commandline -i \n; commandline -f backward-char; commandline -f repaint-mode'
-    bind -s --preset -M replace_one -m default \e cancel repaint-mode
+    bind -s --preset -M replace_one -m default enter 'commandline -f delete-char; commandline -i \n; commandline -f backward-char; commandline -f repaint-mode'
+    bind -s --preset -M replace_one -m default escape cancel repaint-mode
 
 
     ## FIXME Insert mode keys
@@ -246,18 +261,18 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
     # Vi moves the cursor back if, after deleting, it is at EOL.
     # To emulate that, move forward, then backward, which will be a NOP
     # if there is something to move forward to.
-    bind -s --preset -M insert -k dc delete-char forward-single-char backward-char
-    bind -s --preset -M default -k dc delete-char forward-single-char backward-char
+    bind -s --preset -M insert delete delete-char forward-single-char backward-char
+    bind -s --preset -M default delete delete-char forward-single-char backward-char
 
     # Backspace deletes a char in insert mode, but not in normal/default mode.
-    bind -s --preset -M insert -k backspace backward-delete-char
-    bind -s --preset -M default -k backspace backward-char
+    bind -s --preset -M insert backspace backward-delete-char
+    bind -s --preset -M default backspace backward-char
     bind -s --preset -M insert \ch backward-delete-char
     bind -s --preset -M default \ch backward-char
     bind -s --preset -M insert \x7f backward-delete-char
     bind -s --preset -M default \x7f backward-char
-    bind -s --preset -M insert -k sdc backward-delete-char # shifted delete
-    bind -s --preset -M default -k sdc backward-delete-char # shifted delete
+    bind -s --preset -M insert shift-delete backward-delete-char # shifted delete
+    bind -s --preset -M default shift-delete backward-delete-char # shifted delete
 
 
 #    bind -s --preset '~' togglecase-char forward-single-char
@@ -293,6 +308,14 @@ function fish_helix_key_bindings --description 'helix-like key bindings for fish
     # After executing once, this will have defined functions listening for the variable.
     # Therefore it needs to be before setting fish_bind_mode.
     fish_vi_cursor
+
+    # Configure specific cursor shapes for each mode
+    set -g fish_cursor_default block      # Normal mode: block
+    set -g fish_cursor_insert line        # Insert mode: line
+    set -g fish_cursor_replace_one underscore
+    set -g fish_cursor_replace underscore
+    set -g fish_cursor_visual underscore  # Visual mode: underscore
+
     set -g fish_cursor_selection_mode inclusive
 
     set fish_bind_mode $init_mode
