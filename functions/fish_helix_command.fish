@@ -79,23 +79,8 @@ function fish_helix_command
             __fish_helix_prev_word $fish_bind_mode $count $regex
 
 
-        case till_next_char
-            __fish_helix_find_char $fish_bind_mode $count forward-jump-till forward-char
-        case find_next_char
-            __fish_helix_find_char $fish_bind_mode $count forward-jump
-        case till_prev_char
-            __fish_helix_find_char $fish_bind_mode $count backward-jump-till backward-char
-        case find_prev_char
-            __fish_helix_find_char $fish_bind_mode $count backward-jump
-
-        case till_next_cr
-            __fish_helix_find_next_cr $fish_bind_mode $count 2
-        case find_next_cr
-            __fish_helix_find_next_cr $fish_bind_mode $count 1
-        case till_prev_cr
-            __fish_helix_find_prev_cr $fish_bind_mode $count 1
-        case find_prev_cr
-            __fish_helix_find_prev_cr $fish_bind_mode $count 0
+        # Find/till character commands are now directly bound to fish built-in functions
+        # Find/till newline commands are also directly bound in fish_helix_key_bindings.fish
 
         case goto_line_start
             commandline -f beginning-of-line
@@ -160,6 +145,8 @@ function fish_helix_command
         case select_all
             commandline -f beginning-of-buffer begin-selection end-of-buffer end-of-line backward-char
 
+        case select_line
+            commandline -f beginning-of-line begin-selection end-of-line
 
         case '*'
             echo "[fish-helix]" Unknown command $command >&2
@@ -179,53 +166,8 @@ function __fish_helix_extend_by_mode
     end
 end
 
-function __fish_helix_find_char -a mode count fish_cmdline till
-    # FIXME don't reset selection if N/A
-    if test $mode = default
-        commandline -f begin-selection
-    end
-    commandline -f $till $fish_cmdline
-    for i in (seq 2 $count)
-        commandline -f $till repeat-jump
-    end
-end
-
-function __fish_helix_find_next_cr -a mode count skip
-    set -l cursor (commandline -C)
-    commandline | # Include endling newline intentionally
-    # Skip until cursor:
-    sed -z 's/^.\{'(math $cursor + $skip)'\}\(.*\)$/\\1/' |
-    # Count characters up to the target newline:
-    sed -z 's/^\(\([^\\n]*\\n\)\{0,'$count'\}\).*/\\1/' |
-    read -zl chars
-
-    if test $mode = default -a -n "$chars"
-        commandline -f begin-selection
-    end
-    for i in (seq 1 (string length -- "$chars"))
-        commandline -f forward-char
-    end
-end
-
-function __fish_helix_find_prev_cr -a mode count skip
-    set -l cursor (commandline -C)
-    commandline --cut-at-cursor |
-    sed -z 's/.\{'$skip'\}\n$//' |
-    read -zl buffer
-
-    echo -n $buffer |
-    # Drop characters up to the target newline:
-    sed -z 's/\(\(\\n[^\\n]*\)\{0,'$count'\}\)$//' |
-    read -zl chars
-    set -l n_chars (math (string length -- "$buffer") - (string length -- "$chars"))
-
-    if test $mode = default -a $n_chars != 0
-        commandline -f begin-selection
-    end
-    for i in (seq 1 $n_chars)
-        commandline -f backward-char
-    end
-end
+# These functions have been removed as the functionality is now handled
+# directly by fish's built-in jump commands in fish_helix_key_bindings.fish
 
 function __fish_helix_goto_line_end
     # check if we are on an empty line first
